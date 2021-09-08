@@ -122,7 +122,12 @@ bot.action(addNewUserCallback.filter(), async (ctx) => {
       Markup.button.text("/drink"),
     ])
   );
-  await ctx.answerCbQuery(`@${user.username} wurde aktiviert`);
+
+  await ctx.answerCbQuery();
+  const admins = await prisma.user.findMany({ where: { admin: true } });
+  admins.forEach((admin) => {
+    bot.telegram.sendMessage(admin.id, `@${user.username} wurde aktiviert`);
+  });
 });
 
 bot.action(blockUserCallback.filter(), async (ctx) => {
@@ -132,7 +137,12 @@ bot.action(blockUserCallback.filter(), async (ctx) => {
     where: { id },
     data: { enabled: false, blocked: true },
   });
-  await ctx.answerCbQuery(`@${user.username} wurde blockiert`);
+
+  await ctx.answerCbQuery();
+  const admins = await prisma.user.findMany({ where: { admin: true } });
+  admins.forEach((admin) => {
+    bot.telegram.sendMessage(admin.id, `@${user.username} wurde blockiert`);
+  });
 });
 
 bot.command("id", (ctx) => {
