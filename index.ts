@@ -219,18 +219,21 @@ bot.command("history", async (ctx) => {
     },
   });
   ctx.replyWithHTML(
-    `${transactions
-      .map(
-        (transaction) =>
-          `${transaction.date.toLocaleDateString()} ${transaction.date.toLocaleTimeString()} von @${
-            transaction.user.username
-          } ${
-            transaction.change >= 0
-              ? `+${transaction.change}`
-              : transaction.change
-          }`
-      )
-      .join("\n\n")}`
+    `${
+      transactions
+        .slice(transactions.length - 20, transactions.length)
+        .map(
+          (transaction) =>
+            `${transaction.date.toLocaleDateString()} ${transaction.date.toLocaleTimeString()} von @${
+              transaction.user.username
+            } ${
+              transaction.change >= 0
+                ? `+${transaction.change}`
+                : transaction.change
+            }`
+        )
+        .join("\n") || "Nichts"
+    }`
   );
 });
 
