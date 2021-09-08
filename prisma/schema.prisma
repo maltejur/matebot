@@ -12,7 +12,9 @@ generator client {
 
 model User {
   id                   String         @id
-  username             String?        @unique
+  username             String         @unique
+  enabled              Boolean        @default(false)
+  blocked              Boolean        @default(false)
   admin                Boolean        @default(false)
   value                Int            @default(0)
   transactions         Transactions[]
