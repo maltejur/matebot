@@ -104,6 +104,7 @@ bot.action(newUserRequestCallback.filter(), async (ctx) => {
       ])
     );
   });
+  ctx.answerCbQuery("Anfrage gesendet");
 });
 
 bot.action(addNewUserCallback.filter(), async (ctx) => {
