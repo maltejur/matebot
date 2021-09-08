@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "target": "ESNext",
+    "outDir": "dist",
+    "resolveJsonModule": true
+  },
+  "include": ["index.ts"]
+}
