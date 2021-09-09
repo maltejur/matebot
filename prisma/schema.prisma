@@ -30,3 +30,8 @@ model Transactions {
   author   User     @relation(references: [id], fields: [authorId], name: "author")
   date     DateTime @default(now())
 }
+
+model Total {
+  id    Int @id @default(0)
+  value Int @default(0)
+}

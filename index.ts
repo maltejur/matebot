@@ -65,8 +65,22 @@ async function checkMate(ctx: Context<Update>) {
   const user = await prisma.user.findUnique({
     where: { id: ctx.from.id.toString() },
   });
+  let message: string;
+  if (user.admin) {
+    const total = await prisma.total.findUnique({ where: { id: 0 } });
+    const used = await prisma.user.aggregate({
+      _sum: {
+        value: true,
+      },
+    });
+    message = `Mate auf Lager: <code>${total.value}</code>
+Mate noch nicht Verteilt: <code>${total.value - used._sum.value}</code>
+Persönlich verfügbare Mate: <code>${user.value}</code>`;
+  } else {
+    message = `Mate Verfügbar: <code>${user.value}</code>`;
+  }
   await ctx.replyWithHTML(
-    `Mate Verfügbar: <code>${user.value}</code>`,
+    message,
     Markup.keyboard([
       Markup.button.text("/check"),
       Markup.button.text("/drink"),
@@ -165,6 +179,11 @@ bot.command("drink", async (ctx) => {
   await prisma.transactions.create({
     data: { userId: id, authorId: id, change: -1 },
   });
+  const total = await prisma.total.findUnique({ where: { id: 0 } });
+  await prisma.total.update({
+    where: { id: 0 },
+    data: { value: total.value - 1 },
+  });
   await ctx.reply(`Mate getrunken`);
   await checkMate(ctx);
 });
@@ -183,6 +202,7 @@ bot.command("update", async (ctx) => {
         : args[2][0] === "-"
         ? user.value - Number.parseInt(args[2].substr(1))
         : Number.parseInt(args[2]);
+    const change = newValue - user.value;
     await prisma.user.update({
       where: { username },
       data: { value: newValue },
@@ -191,9 +211,10 @@ bot.command("update", async (ctx) => {
       data: {
         userId: user.id,
         authorId: ctx.from.id.toString(),
-        change: newValue - user.value,
+        change,
       },
     });
+    const total = await prisma.total.findUnique({ where: { id: 0 } });
     await bot.telegram.sendMessage(
       user.id,
       `Dein Matestand wurde von @${ctx.from.username} aktualisiert, neuer Stand: ${newValue}`
@@ -204,6 +225,37 @@ bot.command("update", async (ctx) => {
   } catch (e) {
     await ctx.replyWithHTML(
       `Fehler, Benutzung: <code>/update @[username] ["+","-",""][Wert]</code>`
+    );
+    console.log(e);
+    return;
+  }
+});
+
+bot.command("updatetotal", async (ctx) => {
+  if (!(await checkAdmin(ctx))) return;
+  try {
+    const args = ctx.message.text.split(" ");
+    if (args.length !== 2) throw new Error();
+    const total = await prisma.total.findUnique({ where: { id: 0 } });
+    const newValue =
+      args[1][0] === "+"
+        ? total.value + Number.parseInt(args[1].substr(1))
+        : args[1][0] === "-"
+        ? total.value - Number.parseInt(args[1].substr(1))
+        : Number.parseInt(args[1]);
+    const change = newValue - total.value;
+    await prisma.total.update({
+      where: { id: 0 },
+      data: {
+        value: newValue,
+      },
+    });
+    await ctx.replyWithHTML(
+      `Totalstand wurde um <code>${change}</code> aktualisiert, neuer Stand: <code>${newValue}</code>`
+    );
+  } catch (e) {
+    await ctx.replyWithHTML(
+      `Fehler, Benutzung: <code>/updatetotal ["+","-",""][Wert]</code>`
     );
     console.log(e);
     return;
@@ -328,10 +380,18 @@ bot.command("help", async (ctx) => {
 /help - Hilfe`;
   if (user.admin)
     helpPage += `\n<code>/update @[username] ["+","-",""][Wert]</code> - Matestand von User ändern (entweder erhöhen, verringern oder neuen Wert eintragen)
+<code>/updatetotal ["+","-",""][Wert]</code> - Totalen Matestand von ändern
 /list - Alle Benutzer auflisten
 <code>/admin @[username]</code> - User zu Admin machen / Admin entfernen
 <code>/block @[username]</code> - User blockieren / entblockieren`;
   await ctx.replyWithHTML(helpPage);
 });
 
-bot.launch().then(() => console.log("ready"));
+async function main() {
+  const total = await prisma.total.findUnique({ where: { id: 0 } });
+  if (!total) await prisma.total.create({ data: {} });
+  await bot.launch();
+  console.log("ready");
+}
+
+main();
