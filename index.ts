@@ -201,10 +201,11 @@ bot.command("update", async (ctx) => {
     await ctx.replyWithHTML(
       `Matestand von @${username} aktualisiert, neuer Stand: <code>${newValue}</code>`
     );
-  } catch {
+  } catch (e) {
     await ctx.replyWithHTML(
       `Fehler, Benutzung: <code>/update @[username] ["+","-",""][Wert]</code>`
     );
+    console.log(e);
     return;
   }
 });
