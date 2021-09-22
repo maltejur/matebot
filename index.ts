@@ -104,6 +104,10 @@ bot.action(newUserRequestCallback.filter(), async (ctx) => {
     await ctx.answerCbQuery("Bereits aktiviert");
     return;
   }
+  if (!username) {
+    await ctx.answerCbQuery("Du hast keinen Telegram username");
+    return;
+  }
   if (!existingUser) {
     await prisma.user.create({ data: { id, username } });
   }
