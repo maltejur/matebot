@@ -281,7 +281,7 @@ bot.command("updatep", async (ctx) => {
         : args[2][0] === "-"
         ? user.pfand - Number.parseInt(args[2].substr(1))
         : Number.parseInt(args[2]);
-    const change = newPfand - user.value;
+    const change = newPfand - user.pfand;
     if (change <= 0) {
       await ctx.reply("Pfand darf nicht unter 0 liegen");
       return;
