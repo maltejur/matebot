@@ -388,7 +388,9 @@ bot.command("list", async (ctx) => {
               : user.admin
               ? "(A)"
               : ""
-          } @${user.username}: ${user.value}`
+          } @${user.username}: ${user.value}${
+            user.pfand > 0 ? ` (${user.pfand}P)` : ""
+          }`
       )
       .join("\n")
   );
