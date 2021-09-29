@@ -17,6 +17,7 @@ model User {
   blocked              Boolean        @default(false)
   admin                Boolean        @default(false)
   value                Int            @default(0)
+  pfand                Int            @default(0)
   transactions         Transactions[]
   authoredTransactions Transactions[] @relation("author")
 }
@@ -26,6 +27,7 @@ model Transactions {
   userId   String
   authorId String
   change   Int
+  type     String   @default("value")
   user     User     @relation(references: [id], fields: [userId])
   author   User     @relation(references: [id], fields: [authorId], name: "author")
   date     DateTime @default(now())

@@ -61,6 +61,13 @@ async function checkAdmin(ctx: Context<Update>) {
   return allowed;
 }
 
+function inlineKeyboard() {
+  return Markup.keyboard([
+    [Markup.button.text("/drink")],
+    [Markup.button.text("/check"), Markup.button.text("/return")],
+  ]);
+}
+
 async function checkMate(ctx: Context<Update>) {
   const user = await prisma.user.findUnique({
     where: { id: ctx.from.id.toString() },
@@ -76,16 +83,16 @@ async function checkMate(ctx: Context<Update>) {
     message = `Mate auf Lager: <code>${total.value}</code>
 Mate noch nicht Verteilt: <code>${total.value - used._sum.value}</code>
 Persönlich verfügbare Mate: <code>${user.value}</code>`;
+    if (user.pfand)
+      message += `
+Persönlich ausstehendes Pfand: <code>${user.pfand}</code>`;
   } else {
     message = `Mate Verfügbar: <code>${user.value}</code>`;
+    if (user.pfand)
+      message += `
+Ausstehendes Pfand: <code>${user.pfand}</code>`;
   }
-  await ctx.replyWithHTML(
-    message,
-    Markup.keyboard([
-      Markup.button.text("/check"),
-      Markup.button.text("/drink"),
-    ])
-  );
+  await ctx.replyWithHTML(message, inlineKeyboard());
 }
 
 bot.start(async (ctx) => {
@@ -135,10 +142,7 @@ bot.action(addNewUserCallback.filter(), async (ctx) => {
   await bot.telegram.sendMessage(
     id,
     `Du wurdest durch @${ctx.from.username} aktiviert. Dein Matestand beträgt: ${user.value}`,
-    Markup.keyboard([
-      Markup.button.text("/check"),
-      Markup.button.text("/drink"),
-    ])
+    inlineKeyboard()
   );
 
   await ctx.answerCbQuery();
@@ -179,9 +183,15 @@ bot.command("drink", async (ctx) => {
   const user = await prisma.user.findUnique({
     where: { id },
   });
-  await prisma.user.update({ where: { id }, data: { value: user.value - 1 } });
+  await prisma.user.update({
+    where: { id },
+    data: { value: user.value - 1, pfand: user.pfand + 1 },
+  });
   await prisma.transactions.create({
     data: { userId: id, authorId: id, change: -1 },
+  });
+  await prisma.transactions.create({
+    data: { userId: id, authorId: id, change: 1, type: "pfand" },
   });
   const total = await prisma.total.findUnique({ where: { id: 0 } });
   await prisma.total.update({
@@ -189,6 +199,28 @@ bot.command("drink", async (ctx) => {
     data: { value: total.value - 1 },
   });
   await ctx.reply(`Mate getrunken`);
+  await checkMate(ctx);
+});
+
+bot.command("return", async (ctx) => {
+  if (!(await checkUser(ctx))) return;
+  const id = ctx.from.id.toString();
+  const user = await prisma.user.findUnique({
+    where: { id },
+  });
+  if (user.pfand <= 0) {
+    await ctx.reply(`Kein Pfand ausstehend`);
+    await checkMate(ctx);
+    return;
+  }
+  await prisma.user.update({
+    where: { id },
+    data: { pfand: user.pfand - 1 },
+  });
+  await prisma.transactions.create({
+    data: { userId: id, authorId: id, change: -1, type: "pfand" },
+  });
+  await ctx.reply(`Eine Flasche zurückgegeben`);
   await checkMate(ctx);
 });
 
@@ -229,6 +261,53 @@ bot.command("update", async (ctx) => {
   } catch (e) {
     await ctx.replyWithHTML(
       `Fehler, Benutzung: <code>/update @[username] ["+","-",""][Wert]</code>`
+    );
+    console.log(e);
+    return;
+  }
+});
+
+bot.command("updatep", async (ctx) => {
+  if (!(await checkAdmin(ctx))) return;
+  try {
+    const args = ctx.message.text.split(" ");
+    if (args.length !== 3) throw new Error();
+    if (args[1][0] !== "@") throw new Error();
+    const username = args[1].substr(1);
+    const user = await prisma.user.findUnique({ where: { username } });
+    const newPfand =
+      args[2][0] === "+"
+        ? user.pfand + Number.parseInt(args[2].substr(1))
+        : args[2][0] === "-"
+        ? user.pfand - Number.parseInt(args[2].substr(1))
+        : Number.parseInt(args[2]);
+    const change = newPfand - user.value;
+    if (change <= 0) {
+      await ctx.reply("Pfand darf nicht unter 0 liegen");
+      return;
+    }
+    await prisma.user.update({
+      where: { username },
+      data: { pfand: newPfand },
+    });
+    await prisma.transactions.create({
+      data: {
+        userId: user.id,
+        authorId: ctx.from.id.toString(),
+        change,
+        type: "pfand",
+      },
+    });
+    await bot.telegram.sendMessage(
+      user.id,
+      `Dein ausstehender Pfand wurde von @${ctx.from.username} aktualisiert, neuer Stand: ${newPfand}`
+    );
+    await ctx.replyWithHTML(
+      `Ausstehender Pfand von @${username} aktualisiert, neuer Stand: <code>${newPfand}</code>`
+    );
+  } catch (e) {
+    await ctx.replyWithHTML(
+      `Fehler, Benutzung: <code>/updatep @[username] ["+","-",""][Wert]</code>`
     );
     console.log(e);
     return;
@@ -287,7 +366,7 @@ bot.command("history", async (ctx) => {
               transaction.change >= 0
                 ? `+${transaction.change}`
                 : transaction.change
-            }`
+            } ${transaction.type === "pfand" ? "(Pfand)" : ""}`
         )
         .join("\n") || "Nichts"
     }`
@@ -380,10 +459,13 @@ bot.command("help", async (ctx) => {
   });
   let helpPage = `/drink - Eine Mate trinken
 /check - Matestand abfragen
+/return - Eine Pfandflasche zurückgeben
 /history - Transaktionsgeschichte anzeigen
 /help - Hilfe`;
   if (user.admin)
-    helpPage += `\n<code>/update @[username] ["+","-",""][Wert]</code> - Matestand von User ändern (entweder erhöhen, verringern oder neuen Wert eintragen)
+    helpPage += `
+<code>/update @[username] ["+","-",""][Wert]</code> - Matestand von User ändern (entweder erhöhen, verringern oder neuen Wert eintragen)
+<code>/updatep @[username] ["+","-",""][Wert]</code> - Ausstehndes Pfand von User ändern
 <code>/updatetotal ["+","-",""][Wert]</code> - Totalen Matestand von ändern
 /list - Alle Benutzer auflisten
 <code>/admin @[username]</code> - User zu Admin machen / Admin entfernen
