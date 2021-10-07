@@ -454,6 +454,43 @@ bot.command("block", async (ctx) => {
   }
 });
 
+bot.command("announce", async (ctx) => {
+  if (!(await checkAdmin(ctx))) return;
+  const args = ctx.message.text.split(" ");
+  if (args.length < 2) {
+    await ctx.replyWithHTML(
+      `Fehler, Benutzung: <code>/announce [Nachricht]</code>`
+    );
+    return;
+  }
+  const users = await prisma.user.findMany({
+    select: { id: true, username: true },
+  });
+  let message = "";
+  let recipients: string[] = [];
+  let error = false;
+  while (args.length > 1) {
+    const slice = args.pop();
+    if (slice.startsWith("@")) {
+      const username = slice.slice(1);
+      const user = users.find((user) => user.username === username);
+      if (!user) {
+        await ctx.replyWithHTML(
+          `Fehler, Username <code>@${username}</code> nicht gefunden`
+        );
+        error = true;
+        continue;
+      }
+      recipients.push(user.id);
+    } else {
+      message = `${slice} ${message}`;
+    }
+  }
+  if (error) return;
+  if (recipients.length === 0) recipients = users.map((user) => user.id);
+  recipients.forEach((userId) => bot.telegram.sendMessage(userId, message));
+});
+
 bot.command("help", async (ctx) => {
   if (!(await checkUser(ctx))) return;
   const user = await prisma.user.findUnique({
@@ -471,7 +508,9 @@ bot.command("help", async (ctx) => {
 <code>/updatetotal ["+","-",""][Wert]</code> - Totalen Matestand von ändern
 /list - Alle Benutzer auflisten
 <code>/admin @[username]</code> - User zu Admin machen / Admin entfernen
-<code>/block @[username]</code> - User blockieren / entblockieren`;
+<code>/block @[username]</code> - User blockieren / entblockieren
+<code>/announce [Nachricht]</code> - Nachricht an alle user senden
+<code>/announce @[username] @[username] [Nachricht]</code> - Nachricht an bestimmte user senden`;
   await ctx.replyWithHTML(helpPage);
 });
 
