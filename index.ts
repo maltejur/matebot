@@ -21,7 +21,7 @@ async function checkUser(ctx: Context<Update>) {
   const user = await prisma.user.findUnique({
     where: { id },
   });
-  if (user && !user.username) {
+  if ((user && !user.username) || user.username !== ctx.from.username) {
     await prisma.user.update({
       where: { id },
       data: { username: ctx.from.username },
