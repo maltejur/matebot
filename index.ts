@@ -15,7 +15,10 @@ const addNewUserCallback = new CallbackData<{ id: string }>("addNewUser", [
   "id",
 ]);
 const blockUserCallback = new CallbackData<{ id: string }>("blockUser", ["id"]);
-const historyCallback = new CallbackData<{ page: string }>("history", ["page"]);
+const historyCallback = new CallbackData<{ page: string; username: string }>(
+  "history",
+  ["page", "username"]
+);
 
 async function checkUser(ctx: Context<Update>) {
   const id = ctx.from.id.toString();
@@ -359,8 +362,10 @@ bot.command("history", async (ctx) => {
 
 bot.action(historyCallback.filter(), async (ctx) => {
   if (!(await checkUser(ctx))) return;
-  const { page } = historyCallback.parse(deunionize(ctx.callbackQuery).data);
-  await history(ctx, ctx.from.username, Number.parseInt(page));
+  const { page, username } = historyCallback.parse(
+    deunionize(ctx.callbackQuery).data
+  );
+  await history(ctx, username, Number.parseInt(page));
   await ctx.answerCbQuery();
 });
 
@@ -397,7 +402,7 @@ ${
         ? [
             Markup.button.callback(
               `← Seite ${page}`,
-              historyCallback.create({ page: (page - 1).toString() })
+              historyCallback.create({ page: (page - 1).toString(), username })
             ),
           ]
         : []),
@@ -405,7 +410,7 @@ ${
         ? [
             Markup.button.callback(
               `Seite ${page + 2} →`,
-              historyCallback.create({ page: (page + 1).toString() })
+              historyCallback.create({ page: (page + 1).toString(), username })
             ),
           ]
         : []),
