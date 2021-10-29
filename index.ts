@@ -15,6 +15,7 @@ const addNewUserCallback = new CallbackData<{ id: string }>("addNewUser", [
   "id",
 ]);
 const blockUserCallback = new CallbackData<{ id: string }>("blockUser", ["id"]);
+const historyCallback = new CallbackData<{ page: string }>("history", ["page"]);
 
 async function checkUser(ctx: Context<Update>) {
   const id = ctx.from.id.toString();
@@ -346,32 +347,71 @@ bot.command("updatetotal", async (ctx) => {
 });
 
 bot.command("history", async (ctx) => {
+  let username = ctx.message.text
+    .split(" ")
+    .find((arg) => arg.startsWith("@"))
+    ?.substr(1);
+  if (username) {
+    if (!(await checkAdmin(ctx))) return;
+  } else username = ctx.from.username;
+  history(ctx, username);
+});
+
+bot.action(historyCallback.filter(), async (ctx) => {
   if (!(await checkUser(ctx))) return;
+  const { page } = historyCallback.parse(deunionize(ctx.callbackQuery).data);
+  await history(ctx, ctx.from.username, Number.parseInt(page));
+  await ctx.answerCbQuery();
+});
+
+async function history(ctx: Context, username: string, page?: number) {
+  const PER_PAGE = 10;
   const transactions = await prisma.transactions.findMany({
-    where: { userId: ctx.from.id.toString() },
+    where: { user: { username } },
     include: { user: true },
     orderBy: {
       date: "asc",
     },
   });
+  const numberPages = Math.ceil(transactions.length / PER_PAGE);
+  if (page === undefined) page = numberPages - 1;
   ctx.replyWithHTML(
-    `${
-      transactions
-        .slice(transactions.length - 20, transactions.length)
-        .map(
-          (transaction) =>
-            `${transaction.date.toLocaleDateString()} ${transaction.date.toLocaleTimeString()} von @${
-              transaction.user.username
-            } ${
-              transaction.change >= 0
-                ? `+${transaction.change}`
-                : transaction.change
-            } ${transaction.type === "pfand" ? "(Pfand)" : ""}`
-        )
-        .join("\n") || "Nichts"
-    }`
+    `<b>Verlauf</b> von @${username}, Seite ${page + 1}/${numberPages}
+${
+  transactions
+    .slice(PER_PAGE * page, PER_PAGE * (page + 1))
+    .map(
+      (transaction) =>
+        `${transaction.date.toLocaleDateString()} ${transaction.date.toLocaleTimeString()} von @${
+          transaction.user.username
+        } ${
+          transaction.change >= 0
+            ? `+${transaction.change}`
+            : transaction.change
+        } ${transaction.type === "pfand" ? "(Pfand)" : ""}`
+    )
+    .join("\n") || "Nichts"
+}`,
+    Markup.inlineKeyboard([
+      ...(page > 0
+        ? [
+            Markup.button.callback(
+              `← Seite ${page}`,
+              historyCallback.create({ page: (page - 1).toString() })
+            ),
+          ]
+        : []),
+      ...(page < numberPages - 1
+        ? [
+            Markup.button.callback(
+              `Seite ${page + 2} →`,
+              historyCallback.create({ page: (page + 1).toString() })
+            ),
+          ]
+        : []),
+    ])
   );
-});
+}
 
 bot.command("list", async (ctx) => {
   if (!(await checkAdmin(ctx))) return;
@@ -496,13 +536,17 @@ bot.command("help", async (ctx) => {
   const user = await prisma.user.findUnique({
     where: { id: ctx.from.id.toString() },
   });
-  let helpPage = `/drink - Eine Mate trinken
+  let helpPage = `<b>MateBot</b> v${packagejson.version}
+
+/drink - Eine Mate trinken
 /check - Matestand abfragen
 /return - Eine Pfandflasche zurückgeben
 /history - Transaktionsgeschichte anzeigen
 /help - Hilfe`;
   if (user.admin)
     helpPage += `
+
+<b>ADMIN</b>
 <code>/update @[username] ["+","-",""][Wert]</code> - Matestand von User ändern (entweder erhöhen, verringern oder neuen Wert eintragen)
 <code>/updatep @[username] ["+","-",""][Wert]</code> - Ausstehndes Pfand von User ändern
 <code>/updatetotal ["+","-",""][Wert]</code> - Totalen Matestand von ändern
@@ -510,7 +554,8 @@ bot.command("help", async (ctx) => {
 <code>/admin @[username]</code> - User zu Admin machen / Admin entfernen
 <code>/block @[username]</code> - User blockieren / entblockieren
 <code>/announce [Nachricht]</code> - Nachricht an alle user senden
-<code>/announce @[username] @[username] [Nachricht]</code> - Nachricht an bestimmte user senden`;
+<code>/announce @[username] @[username] [Nachricht]</code> - Nachricht an bestimmte user senden
+<code>/history @[username]</code> - Transaktionsgeschichte für User anzeigen`;
   await ctx.replyWithHTML(helpPage);
 });
 
