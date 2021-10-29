@@ -368,7 +368,7 @@ async function history(ctx: Context, username: string, page?: number) {
   const PER_PAGE = 10;
   const transactions = await prisma.transactions.findMany({
     where: { user: { username } },
-    include: { user: true },
+    include: { user: true, author: true },
     orderBy: {
       date: "asc",
     },
@@ -383,7 +383,7 @@ ${
     .map(
       (transaction) =>
         `${transaction.date.toLocaleDateString()} ${transaction.date.toLocaleTimeString()} von @${
-          transaction.user.username
+          transaction.author.username
         } ${
           transaction.change >= 0
             ? `+${transaction.change}`
