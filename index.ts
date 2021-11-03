@@ -604,7 +604,8 @@ bot.command("help", async (ctx) => {
 <code>/block @[username]</code> - User blockieren / entblockieren
 <code>/announce [Nachricht]</code> - Nachricht an alle user senden
 <code>/announce @[username] @[username] [Nachricht]</code> - Nachricht an bestimmte user senden
-<code>/history @[username]</code> - Transaktionsgeschichte für User anzeigen`;
+<code>/history @[username]</code> - Transaktionsgeschichte für User anzeigen
+<code>/history all</code> - Gesamte Transaktionsgeschichte anzeigen`;
   await ctx.replyWithHTML(helpPage);
 });
 
