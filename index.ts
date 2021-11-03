@@ -382,14 +382,18 @@ bot.command("updatetotal", async (ctx) => {
 });
 
 bot.command("history", async (ctx) => {
-  let username = ctx.message.text
-    .split(" ")
-    .find((arg) => arg.startsWith("@"))
-    ?.substr(1);
-  if (username) {
-    if (!(await checkAdmin(ctx))) return;
-  } else username = ctx.from.username;
-  history(ctx, username);
+  if (ctx.message.text === "/history all") {
+    history(ctx);
+  } else {
+    let username = ctx.message.text
+      .split(" ")
+      .find((arg) => arg.startsWith("@"))
+      ?.substr(1);
+    if (username) {
+      if (!(await checkAdmin(ctx))) return;
+    } else username = ctx.from.username;
+    history(ctx, username);
+  }
 });
 
 bot.action(historyCallback.filter(), async (ctx) => {
@@ -401,10 +405,10 @@ bot.action(historyCallback.filter(), async (ctx) => {
   await ctx.answerCbQuery();
 });
 
-async function history(ctx: Context, username: string, page?: number) {
+async function history(ctx: Context, username?: string, page?: number) {
   const PER_PAGE = 10;
   const transactions = await prisma.transactions.findMany({
-    where: { user: { username } },
+    where: username ? { user: { username } } : {},
     include: { user: true, author: true },
     orderBy: {
       date: "asc",
@@ -413,15 +417,23 @@ async function history(ctx: Context, username: string, page?: number) {
   const numberPages = Math.ceil(transactions.length / PER_PAGE);
   if (page === undefined) page = numberPages - 1;
   ctx.replyWithHTML(
-    `<b>Verlauf</b> von @${username}, Seite ${page + 1}/${numberPages}
+    `${
+      username
+        ? `<b>Verlauf</b> von @${username}, Seite ${page + 1}/${numberPages}`
+        : `<b>Gesamtverlauf</b> Seite ${page + 1}/${numberPages}`
+    }
 ${
   transactions
     .slice(PER_PAGE * page, PER_PAGE * (page + 1))
     .map(
       (transaction) =>
-        `${transaction.date.toLocaleDateString()} ${transaction.date.toLocaleTimeString()} von @${
-          transaction.author.username
-        } ${
+        `${transaction.date.toLocaleDateString()} ${transaction.date.toLocaleTimeString()} ${
+          username
+            ? ""
+            : transaction.type === "total"
+            ? "für Gesamt "
+            : `für @${transaction.user.username} `
+        }von @${transaction.author.username} ${
           transaction.change >= 0
             ? `+${transaction.change}`
             : transaction.change
