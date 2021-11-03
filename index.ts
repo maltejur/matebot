@@ -419,7 +419,7 @@ async function history(ctx: Context, username?: string, page?: number) {
   ctx.replyWithHTML(
     `${
       username
-        ? `<b>Verlauf</b> von @${username}, Seite ${page + 1}/${numberPages}`
+        ? `<b>Verlauf</b> für @${username}, Seite ${page + 1}/${numberPages}`
         : `<b>Gesamtverlauf</b> Seite ${page + 1}/${numberPages}`
     }
 ${
