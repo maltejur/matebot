@@ -24,11 +24,11 @@ model User {
 
 model Transactions {
   id       String   @id @default(uuid())
-  userId   String
+  userId   String?
   authorId String
   change   Int
   type     String   @default("value")
-  user     User     @relation(references: [id], fields: [userId])
+  user     User?    @relation(references: [id], fields: [userId])
   author   User     @relation(references: [id], fields: [authorId], name: "author")
   date     DateTime @default(now())
 }

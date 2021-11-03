@@ -197,6 +197,13 @@ bot.command("drink", async (ctx) => {
   await prisma.transactions.create({
     data: { userId: id, authorId: id, change: 1, type: "pfand" },
   });
+  await prisma.transactions.create({
+    data: {
+      authorId: ctx.from.id.toString(),
+      change: -1,
+      type: "total",
+    },
+  });
   const total = await prisma.total.findUnique({ where: { id: 0 } });
   await prisma.total.update({
     where: { id: 0 },
@@ -212,19 +219,37 @@ bot.command("return", async (ctx) => {
   const user = await prisma.user.findUnique({
     where: { id },
   });
-  if (user.pfand <= 0) {
-    await ctx.reply(`Kein Pfand ausstehend`);
+  let amount = 1;
+  if (ctx.message.text.split(" ").length > 1) {
+    const parsedAmount = parseInt(ctx.message.text.split(" ")[1]);
+    if (isNaN(parsedAmount)) {
+      await ctx.replyWithHTML(
+        `<code>${ctx.message.text.split(" ")[1]}</code> ist keine Zahl du kek`
+      );
+      return;
+    }
+    amount = parsedAmount;
+  }
+
+  if (amount > user.pfand) {
+    await ctx.reply(
+      amount === 1 ? `Kein Pfand ausstehend` : `Nicht so viel Pfand ausstehend`
+    );
     await checkMate(ctx);
     return;
   }
   await prisma.user.update({
     where: { id },
-    data: { pfand: user.pfand - 1 },
+    data: { pfand: user.pfand - amount },
   });
   await prisma.transactions.create({
-    data: { userId: id, authorId: id, change: -1, type: "pfand" },
+    data: { userId: id, authorId: id, change: -amount, type: "pfand" },
   });
-  await ctx.reply(`Eine Flasche zurückgegeben`);
+  await ctx.reply(
+    `${amount === 1 ? "Eine" : amount} ${
+      amount === 1 ? "Flasche" : "Flaschen"
+    } zurückgegeben`
+  );
   await checkMate(ctx);
 });
 
@@ -335,6 +360,13 @@ bot.command("updatetotal", async (ctx) => {
       where: { id: 0 },
       data: {
         value: newValue,
+      },
+    });
+    await prisma.transactions.create({
+      data: {
+        authorId: ctx.from.id.toString(),
+        change,
+        type: "total",
       },
     });
     await ctx.replyWithHTML(
