@@ -311,7 +311,7 @@ bot.command("updatep", async (ctx) => {
         ? user.pfand - Number.parseInt(args[2].substr(1))
         : Number.parseInt(args[2]);
     const change = newPfand - user.pfand;
-    if (change <= 0) {
+    if (newPfand <= 0) {
       await ctx.reply("Pfand darf nicht unter 0 liegen");
       return;
     }
@@ -590,7 +590,7 @@ bot.command("help", async (ctx) => {
 /drink - Eine Mate trinken
 /check - Matestand abfragen
 /return - Eine Pfandflasche zurückgeben
-/history - Transaktionsgeschichte anzeigen
+/history - Verlauf anzeigen
 /help - Hilfe`;
   if (user.admin)
     helpPage += `
@@ -604,8 +604,8 @@ bot.command("help", async (ctx) => {
 <code>/block @[username]</code> - User blockieren / entblockieren
 <code>/announce [Nachricht]</code> - Nachricht an alle user senden
 <code>/announce @[username] @[username] [Nachricht]</code> - Nachricht an bestimmte user senden
-<code>/history @[username]</code> - Transaktionsgeschichte für User anzeigen
-<code>/history all</code> - Gesamte Transaktionsgeschichte anzeigen`;
+<code>/history @[username]</code> - Verlauf für User anzeigen
+<code>/history all</code> - Gesamte Verlauf anzeigen`;
   await ctx.replyWithHTML(helpPage);
 });
 
